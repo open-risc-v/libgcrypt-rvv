@@ -5,25 +5,26 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-IMAGE=${IMAGE:-rvv-cross-gperr:1}
+IMAGE=${IMAGE:-rvv-cross-gperr:3}
 MARCH=${MARCH:-rv64gc}
 OUT=build/riscv64-b
 
 docker run --rm -v "$PWD":/work -w /work "${IMAGE}" bash -lc "
 set -e
 rm -rf ${OUT}
-# 1) libgpg-error：镜像 rvv-cross-gperr:1 已预编 riscv 版到 /opt/gpg-error
-#    （镜像内由发行版源码包构建，见 docs/10-cross-baseline.md）
-[ -f /opt/gpg-error/lib/libgpg-error.a ] || { echo '缺 /opt/gpg-error（用 rvv-cross-gperr:1 镜像）'; exit 1; }
+# 1) libgpg-error 1.61：镜像 rvv-cross-gperr:3 已交叉编到 /opt/gpg-error
+#    （源码 gnupg.org 官方 tar，1.61 起只装 gpgrt-config，镜像里补了 gpg-error-config
+#     shim 供 libgcrypt 的 m4 使用；构建细节见 docs/10-cross-baseline.md）
+[ -f /opt/gpg-error/lib/libgpg-error.a ] || { echo '缺 /opt/gpg-error（用 rvv-cross-gperr:3 镜像）'; exit 1; }
 
 # 2) libgcrypt baseline（复制后 autoreconf，不改 baseline 树）
 mkdir -p ${OUT} && cp -R /work/baseline ${OUT}/src && rm -rf ${OUT}/src/.git
 cd ${OUT}/src && autoreconf -fi > /dev/null 2>&1
 cd /work && mkdir -p ${OUT}/bld && cd ${OUT}/bld
 /work/${OUT}/src/configure --host=riscv64-linux-gnu --prefix=/work/${OUT}/prefix \
-  --disable-shared --enable-static --disable-doc --disable-tests \
+  --disable-shared --enable-static --disable-doc \
   --with-libgpg-error-prefix=/opt/gpg-error \
-  CFLAGS='-march=${MARCH} -O2' > /tmp/gc-cfg.log 2>&1 || { tail -25 /tmp/gc-cfg.log; exit 1; }
+  CFLAGS='-march=${MARCH} -O2' CPPFLAGS='-I/opt/gpg-error/include' > /tmp/gc-cfg.log 2>&1 || { tail -25 /tmp/gc-cfg.log; exit 1; }
 make -j\$(nproc) > /tmp/gc-bld.log 2>&1 || { tail -20 /tmp/gc-bld.log; exit 1; }
 make install > /dev/null
 
