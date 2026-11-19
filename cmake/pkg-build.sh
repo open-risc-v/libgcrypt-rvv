@@ -4,6 +4,8 @@
 set -euo pipefail
 SRC=$1
 OUT=$2
+MARCH=${3:-rv64gcv}
+KERN=${4:-0}
 rm -rf "${OUT}"
 mkdir -p "${OUT}/bld"
 cp -R "${SRC}" "${OUT}/src"
@@ -11,6 +13,7 @@ rm -rf "${OUT}/src/.git"
 cd "${OUT}/src"
 autoreconf -fi >/dev/null 2>&1
 cd "${OUT}/bld"
+if [ "$KERN" = "1" ]; then export CFLAGS="${CFLAGS:-} -march=${MARCH} -DRVV_KERNELS=1"; else export CFLAGS="${CFLAGS:-}"; fi
 "${OUT}/src/configure" --prefix="${OUT}/prefix" --disable-shared --enable-static \
   --disable-doc --disable-tests >/dev/null
 make -j"$(sysctl -n hw.ncpu 2>/dev/null || echo 4)" >/dev/null

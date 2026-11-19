@@ -21,6 +21,11 @@
 
 
 #include "g10lib.h"
+
+#if defined(RVV_KERNELS) && defined(__riscv_v)
+#include "../riscv/buf_xor_rvv.h"
+#endif
+
 #include "bithelp.h"
 #include "const-time.h"
 
@@ -352,6 +357,13 @@ buf_cpy(void *_dst, const void *_src, size_t len)
 static inline void
 buf_xor(void *_dst, const void *_src1, const void *_src2, size_t len)
 {
+#if defined(RVV_KERNELS) && defined(__riscv_v)
+  if (len >= 64)
+    {
+      gcry_buf_xor_rvv (_dst, _src1, _src2, len);
+      return;
+    }
+#endif
   byte *dst = _dst;
   const byte *src1 = _src1;
   const byte *src2 = _src2;
@@ -423,6 +435,13 @@ static inline void
 buf_xor_n_copy_2(void *_dst_xor, const void *_src_xor, void *_srcdst_cpy,
 		 const void *_src_cpy, size_t len)
 {
+#if defined(RVV_KERNELS) && defined(__riscv_v)
+  if (len >= 64)
+    {
+      gcry_buf_xor_n_copy_2_rvv (_dst_xor, _src_xor, _srcdst_cpy, _src_cpy, len);
+      return;
+    }
+#endif
   byte *dst_xor = _dst_xor;
   byte *srcdst_cpy = _srcdst_cpy;
   const byte *src_xor = _src_xor;
